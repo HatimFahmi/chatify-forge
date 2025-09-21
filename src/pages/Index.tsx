@@ -55,7 +55,10 @@ const Index = () => {
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">Welcome back!</h1>
         <p className="mb-4 text-xl text-muted-foreground">You're signed in as {user.email}</p>
-        <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
+        <div className="flex gap-2 justify-center">
+          <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
+          <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
+        </div>
       </div>
     </div>
   );
