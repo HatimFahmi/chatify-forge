@@ -41,6 +41,8 @@ The application is architected with a clear separation between the frontend and 
         -   `chat-completion`: Orchestrates calls to the OpenAI API. It retrieves chat history and system prompts, constructs the payload, and saves both the user's and the assistant's messages to the database.
         -   `upload-file`: Securely handles file uploads by proxying them to the OpenAI Files API, ensuring API keys are not exposed on the client.
 
+For a deeper dive, see [docs/architecture.md](docs/architecture.md).
+
 ## Getting Started
 
 ### Prerequisites
