@@ -221,7 +221,7 @@ const Chat = () => {
     // Rate limiting check
     const now = Date.now();
     const timeSinceLastMessage = now - lastMessageTime;
-    const minInterval = 2000; // 2 seconds between messages
+    const minInterval = 10000; // 30 seconds between messages
 
     if (timeSinceLastMessage < minInterval) {
       toast({
