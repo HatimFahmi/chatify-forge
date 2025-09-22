@@ -41,6 +41,8 @@ const Chat = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [lastMessageTime, setLastMessageTime] = useState(0);
+  const [rateLimitRemaining, setRateLimitRemaining] = useState(10);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -216,9 +218,34 @@ const Chat = () => {
   const sendMessage = async () => {
     if (!inputMessage.trim() || !currentSession || !user || sending) return;
 
+    // Rate limiting check
+    const now = Date.now();
+    const timeSinceLastMessage = now - lastMessageTime;
+    const minInterval = 2000; // 2 seconds between messages
+
+    if (timeSinceLastMessage < minInterval) {
+      toast({
+        title: "Rate Limited",
+        description: `Please wait ${Math.ceil((minInterval - timeSinceLastMessage) / 1000)} seconds before sending another message`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (rateLimitRemaining <= 0) {
+      toast({
+        title: "Rate Limited", 
+        description: "You've reached the message limit. Please wait before sending more messages.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSending(true);
     const messageText = inputMessage.trim();
     setInputMessage("");
+    setLastMessageTime(now);
+    setRateLimitRemaining(prev => prev - 1);
 
     try {
       // Get session token
@@ -242,6 +269,11 @@ const Chat = () => {
 
       // Refresh messages to get the latest conversation
       await fetchMessages();
+
+      // Reset rate limit counter after successful message
+      setTimeout(() => {
+        setRateLimitRemaining(prev => Math.min(prev + 1, 10));
+      }, 60000); // Reset 1 message per minute
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -371,13 +403,21 @@ const Chat = () => {
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message..."
-                  disabled={sending}
+                  disabled={sending || rateLimitRemaining <= 0}
                   className="flex-1"
                 />
-                <Button onClick={sendMessage} disabled={sending || !inputMessage.trim()}>
+                <Button 
+                  onClick={sendMessage} 
+                  disabled={sending || !inputMessage.trim() || rateLimitRemaining <= 0}
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+              {rateLimitRemaining <= 3 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Messages remaining: {rateLimitRemaining}
+                </p>
+              )}
             </div>
           </>
         ) : (

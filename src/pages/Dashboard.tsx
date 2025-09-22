@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
-import { Plus, MessageSquare, Settings, LogOut } from "lucide-react";
+import { Plus, MessageSquare, Settings, LogOut, Wrench } from "lucide-react";
 
 interface Project {
   id: string;
@@ -132,6 +132,10 @@ const Dashboard = () => {
             <span className="text-sm text-muted-foreground">
               {user?.email}
             </span>
+            <Button variant="outline" size="sm" onClick={() => navigate('/works')}>
+              <Wrench className="h-4 w-4 mr-2" />
+              What's in Works
+            </Button>
             <Button variant="outline" size="sm" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
