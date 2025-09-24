@@ -3,6 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Sidebar, 
+  SidebarContent, 
+  SidebarGroup, 
+  SidebarGroupContent, 
+  SidebarProvider, 
+  SidebarTrigger,
+  useSidebar 
+} from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
@@ -28,6 +37,83 @@ interface Project {
   description: string;
 }
 
+const ChatSidebar = ({ 
+  project, 
+  chatSessions, 
+  currentSession, 
+  setCurrentSession, 
+  createNewSession, 
+  deleteSession,
+  navigate 
+}: {
+  project: Project | null;
+  chatSessions: ChatSession[];
+  currentSession: ChatSession | null;
+  setCurrentSession: (session: ChatSession) => void;
+  createNewSession: () => void;
+  deleteSession: (id: string) => void;
+  navigate: (path: string) => void;
+}) => {
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarContent>
+        <SidebarGroup>
+          <div className="p-4 border-b">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/dashboard")}
+              className="w-full justify-start mb-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <h2 className="font-semibold truncate">{project?.name}</h2>
+            <p className="text-sm text-muted-foreground truncate">{project?.description}</p>
+          </div>
+          
+          <div className="p-4 border-b">
+            <Button onClick={createNewSession} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              New Chat
+            </Button>
+          </div>
+
+          <SidebarGroupContent>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                {chatSessions.map((session) => (
+                  <div key={session.id} className="flex items-center gap-2">
+                    <Button
+                      variant={currentSession?.id === session.id ? "secondary" : "ghost"}
+                      className="flex-1 justify-start text-left h-auto p-2"
+                      onClick={() => setCurrentSession(session)}
+                    >
+                      <div className="truncate">
+                        <div className="text-sm font-medium truncate">{session.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(session.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteSession(session.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+};
+
 const Chat = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -45,7 +131,6 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [lastMessageTime, setLastMessageTime] = useState(0);
   const [rateLimitRemaining, setRateLimitRemaining] = useState(10);
-  const [showSidebar, setShowSidebar] = useState(!isMobile);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -306,169 +391,96 @@ const Chat = () => {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      {(!isMobile || showSidebar) && (
-        <div className={`${isMobile ? 'absolute inset-y-0 left-0 z-50 w-64' : 'w-64'} border-r bg-card flex flex-col ${isMobile ? 'shadow-lg' : ''}`}>
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between mb-2">
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate("/dashboard")}
-                className={`${isMobile ? 'p-2' : 'justify-start'}`}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {!isMobile && <span className="ml-2">Back to Dashboard</span>}
-              </Button>
-              {isMobile && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowSidebar(false)}
-                >
-                  ✕
-                </Button>
-              )}
-            </div>
-            <h2 className="font-semibold truncate">{project?.name}</h2>
-            <p className="text-sm text-muted-foreground truncate">{project?.description}</p>
-          </div>
-          
-          <div className="p-4 border-b">
-            <Button onClick={createNewSession} className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              New Chat
-            </Button>
-          </div>
+    <SidebarProvider defaultOpen={!isMobile}>
+      <div className="flex h-screen w-full bg-background">
+        <ChatSidebar
+          project={project}
+          chatSessions={chatSessions}
+          currentSession={currentSession}
+          setCurrentSession={setCurrentSession}
+          createNewSession={createNewSession}
+          deleteSession={deleteSession}
+          navigate={navigate}
+        />
 
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-2">
-              {chatSessions.map((session) => (
-                <div key={session.id} className="flex items-center gap-2">
-                  <Button
-                    variant={currentSession?.id === session.id ? "secondary" : "ghost"}
-                    className="flex-1 justify-start text-left h-auto p-2"
-                    onClick={() => {
-                      setCurrentSession(session);
-                      if (isMobile) setShowSidebar(false);
-                    }}
-                  >
-                    <div className="truncate">
-                      <div className="text-sm font-medium truncate">{session.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(session.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteSession(session.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {currentSession ? (
-          <>
-            <div className="border-b p-4 flex items-center justify-between">
-              {isMobile && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowSidebar(true)}
-                >
-                  <Menu className="h-4 w-4" />
-                </Button>
-              )}
-              <h3 className="font-semibold truncate">{currentSession.name}</h3>
-              <div></div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <Card className={`${isMobile ? 'max-w-[85%]' : 'max-w-[80%]'} ${
-                    message.role === 'user' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-card'
-                  }`}>
-                    <CardContent className="p-3">
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      <div className="text-xs opacity-70 mt-1">
-                        {new Date(message.created_at).toLocaleTimeString()}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
-              {sending && (
-                <div className="flex justify-start">
-                  <Card className="bg-card">
-                    <CardContent className="p-3">
-                      <p className="text-sm text-muted-foreground">Thinking...</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="border-t p-4">
-              <div className="flex gap-2">
-                <Input
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message..."
-                  disabled={sending || rateLimitRemaining <= 0}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={sendMessage} 
-                  disabled={sending || !inputMessage.trim() || rateLimitRemaining <= 0}
-                  size={isMobile ? "sm" : "default"}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {currentSession ? (
+            <>
+              <div className="border-b p-4 flex items-center justify-between">
+                <SidebarTrigger />
+                <h3 className="font-semibold truncate">{currentSession.name}</h3>
+                <div></div>
               </div>
-              {rateLimitRemaining <= 3 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Messages remaining: {rateLimitRemaining}
-                </p>
-              )}
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <Card className={`${isMobile ? 'max-w-[85%]' : 'max-w-[80%]'} ${
+                      message.role === 'user' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-card'
+                    }`}>
+                      <CardContent className="p-3">
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <div className="text-xs opacity-70 mt-1">
+                          {new Date(message.created_at).toLocaleTimeString()}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+                {sending && (
+                  <div className="flex justify-start">
+                    <Card className="bg-card">
+                      <CardContent className="p-3">
+                        <p className="text-sm text-muted-foreground">Thinking...</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="border-t p-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message..."
+                    disabled={sending || rateLimitRemaining <= 0}
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={sendMessage} 
+                    disabled={sending || !inputMessage.trim() || rateLimitRemaining <= 0}
+                    size={isMobile ? "sm" : "default"}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                {rateLimitRemaining <= 3 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Messages remaining: {rateLimitRemaining}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="text-center">
+                <SidebarTrigger className="mb-4" />
+                <p className="text-muted-foreground">Select a chat session to start</p>
+              </div>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              {isMobile && (
-                <Button 
-                  variant="outline"
-                  onClick={() => setShowSidebar(true)}
-                  className="mb-4"
-                >
-                  <Menu className="h-4 w-4 mr-2" />
-                  Show Chat Sessions
-                </Button>
-              )}
-              <p className="text-muted-foreground">Select a chat session to start</p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
