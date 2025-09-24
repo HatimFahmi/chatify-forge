@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
-import { Send, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Send, ArrowLeft, Plus, Trash2, Menu } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Message {
   id: string;
@@ -32,6 +33,7 @@ const Chat = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const [user, setUser] = useState<User | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -43,6 +45,7 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [lastMessageTime, setLastMessageTime] = useState(0);
   const [rateLimitRemaining, setRateLimitRemaining] = useState(10);
+  const [showSidebar, setShowSidebar] = useState(!isMobile);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -305,63 +308,89 @@ const Chat = () => {
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-card flex flex-col">
-        <div className="p-4 border-b">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/dashboard")}
-            className="w-full justify-start mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h2 className="font-semibold truncate">{project?.name}</h2>
-          <p className="text-sm text-muted-foreground truncate">{project?.description}</p>
-        </div>
-        
-        <div className="p-4 border-b">
-          <Button onClick={createNewSession} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-2">
-            {chatSessions.map((session) => (
-              <div key={session.id} className="flex items-center gap-2">
-                <Button
-                  variant={currentSession?.id === session.id ? "secondary" : "ghost"}
-                  className="flex-1 justify-start text-left h-auto p-2"
-                  onClick={() => setCurrentSession(session)}
-                >
-                  <div className="truncate">
-                    <div className="text-sm font-medium truncate">{session.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(session.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </Button>
-                <Button
-                  variant="ghost"
+      {(!isMobile || showSidebar) && (
+        <div className={`${isMobile ? 'absolute inset-y-0 left-0 z-50 w-64' : 'w-64'} border-r bg-card flex flex-col ${isMobile ? 'shadow-lg' : ''}`}>
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-2">
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate("/dashboard")}
+                className={`${isMobile ? 'p-2' : 'justify-start'}`}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {!isMobile && <span className="ml-2">Back to Dashboard</span>}
+              </Button>
+              {isMobile && (
+                <Button 
+                  variant="ghost" 
                   size="sm"
-                  onClick={() => deleteSession(session.id)}
-                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => setShowSidebar(false)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  ✕
                 </Button>
-              </div>
-            ))}
+              )}
+            </div>
+            <h2 className="font-semibold truncate">{project?.name}</h2>
+            <p className="text-sm text-muted-foreground truncate">{project?.description}</p>
+          </div>
+          
+          <div className="p-4 border-b">
+            <Button onClick={createNewSession} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              New Chat
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-2">
+              {chatSessions.map((session) => (
+                <div key={session.id} className="flex items-center gap-2">
+                  <Button
+                    variant={currentSession?.id === session.id ? "secondary" : "ghost"}
+                    className="flex-1 justify-start text-left h-auto p-2"
+                    onClick={() => {
+                      setCurrentSession(session);
+                      if (isMobile) setShowSidebar(false);
+                    }}
+                  >
+                    <div className="truncate">
+                      <div className="text-sm font-medium truncate">{session.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(session.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteSession(session.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {currentSession ? (
           <>
-            <div className="border-b p-4">
-              <h3 className="font-semibold">{currentSession.name}</h3>
+            <div className="border-b p-4 flex items-center justify-between">
+              {isMobile && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowSidebar(true)}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              )}
+              <h3 className="font-semibold truncate">{currentSession.name}</h3>
+              <div></div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -370,7 +399,7 @@ const Chat = () => {
                   key={message.id}
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <Card className={`max-w-[80%] ${
+                  <Card className={`${isMobile ? 'max-w-[85%]' : 'max-w-[80%]'} ${
                     message.role === 'user' 
                       ? 'bg-primary text-primary-foreground' 
                       : 'bg-card'
@@ -409,6 +438,7 @@ const Chat = () => {
                 <Button 
                   onClick={sendMessage} 
                   disabled={sending || !inputMessage.trim() || rateLimitRemaining <= 0}
+                  size={isMobile ? "sm" : "default"}
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -421,8 +451,20 @@ const Chat = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">Select a chat session to start</p>
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="text-center">
+              {isMobile && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowSidebar(true)}
+                  className="mb-4"
+                >
+                  <Menu className="h-4 w-4 mr-2" />
+                  Show Chat Sessions
+                </Button>
+              )}
+              <p className="text-muted-foreground">Select a chat session to start</p>
+            </div>
           </div>
         )}
       </div>

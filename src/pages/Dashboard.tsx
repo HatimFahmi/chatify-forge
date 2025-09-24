@@ -17,7 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
-import { Plus, MessageSquare, Settings, LogOut, Wrench } from "lucide-react";
+import { Plus, MessageSquare, Settings, LogOut, Wrench, Upload, Menu } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Project {
   id: string;
@@ -35,8 +36,11 @@ const Dashboard = () => {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -87,17 +91,58 @@ const Dashboard = () => {
   const createProject = async () => {
     if (!user || !projectName.trim()) return;
 
+    setUploading(true);
     try {
-      const { error } = await supabase
+      const { data: projectData, error } = await supabase
         .from('projects')
         .insert({
           user_id: user.id,
           name: projectName,
           description: projectDescription,
           system_prompt: systemPrompt,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Upload files if any are selected
+      if (selectedFiles && selectedFiles.length > 0) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("No session found");
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('purpose', 'assistants');
+
+          try {
+            const response = await supabase.functions.invoke('upload-file', {
+              body: formData,
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+
+            if (response.error) {
+              console.error('Error uploading file:', response.error);
+              toast({
+                title: "Warning",
+                description: `Failed to upload ${file.name}`,
+                variant: "destructive",
+              });
+            }
+          } catch (fileError) {
+            console.error('Error uploading file:', fileError);
+            toast({
+              title: "Warning", 
+              description: `Failed to upload ${file.name}`,
+              variant: "destructive",
+            });
+          }
+        }
+      }
 
       toast({
         title: "Success",
@@ -108,6 +153,7 @@ const Dashboard = () => {
       setProjectName("");
       setProjectDescription("");
       setSystemPrompt("");
+      setSelectedFiles(null);
       fetchProjects();
     } catch (error) {
       toast({
@@ -115,6 +161,8 @@ const Dashboard = () => {
         description: "Failed to create project",
         variant: "destructive",
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -135,21 +183,34 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">ChatBot Platform</h1>
+          <h1 className={`font-bold ${isMobile ? 'text-lg' : 'text-2xl'}`}>
+            {isMobile ? 'ChatBot' : 'ChatBot Platform'}
+          </h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/works')}>
-              <Wrench className="h-4 w-4 mr-2" />
-              What's in Works
-            </Button>
+            {!isMobile && (
+              <Button variant="outline" size="sm" onClick={() => navigate('/works')}>
+                <Wrench className="h-4 w-4 mr-2" />
+                What's in Works
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  {user?.email}
+                  {isMobile ? <Menu className="h-4 w-4" /> : user?.email}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {isMobile && (
+                  <>
+                    <DropdownMenuItem onSelect={() => navigate('/works')}>
+                      <Wrench className="h-4 w-4 mr-2" />
+                      What's in Works
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem onSelect={handleSignOut}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
@@ -160,21 +221,21 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+      <main className="container mx-auto px-4 py-6">
+        <div className={`flex ${isMobile ? 'flex-col gap-4' : 'justify-between items-center'} mb-8`}>
           <div>
-            <h2 className="text-3xl font-bold">Your Projects</h2>
+            <h2 className={`font-bold ${isMobile ? 'text-2xl' : 'text-3xl'}`}>Your Projects</h2>
             <p className="text-muted-foreground">Create and manage your chatbot projects</p>
           </div>
           
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className={isMobile ? 'w-full' : ''}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Project
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className={isMobile ? 'mx-4 max-w-sm' : ''}>
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
                 <DialogDescription>
@@ -207,11 +268,36 @@ const Dashboard = () => {
                     value={systemPrompt}
                     onChange={(e) => setSystemPrompt(e.target.value)}
                     placeholder="You are a helpful assistant that..."
-                    rows={4}
+                    rows={3}
                   />
                 </div>
-                <Button onClick={createProject} className="w-full">
-                  Create Project
+                <div>
+                  <Label htmlFor="files">Upload Files (Optional)</Label>
+                  <Input
+                    id="files"
+                    type="file"
+                    multiple
+                    onChange={(e) => setSelectedFiles(e.target.files)}
+                    accept=".pdf,.doc,.docx,.txt,.csv"
+                    className="cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload documents to enhance your agent's knowledge
+                  </p>
+                </div>
+                <Button 
+                  onClick={createProject} 
+                  className="w-full" 
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 animate-spin" />
+                      Creating Project...
+                    </>
+                  ) : (
+                    'Create Project'
+                  )}
                 </Button>
               </div>
             </DialogContent>
@@ -226,28 +312,28 @@ const Dashboard = () => {
             <p className="text-muted-foreground mb-4">
               Create your first chatbot project to get started
             </p>
-            <Button onClick={() => setShowCreateDialog(true)}>
+            <Button onClick={() => setShowCreateDialog(true)} className={isMobile ? 'w-full' : ''}>
               <Plus className="h-4 w-4 mr-2" />
               Create Project
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
             {projects.map((project) => (
               <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    {project.name}
-                    <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                    <span className="truncate">{project.name}</span>
+                    <MessageSquare className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                   </CardTitle>
-                  <CardDescription>{project.description}</CardDescription>
+                  <CardDescription className="line-clamp-2">{project.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
+                  <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
                     <Button 
                       size="sm" 
                       onClick={() => navigate(`/chat/${project.id}`)}
-                      className="flex-1"
+                      className={isMobile ? 'w-full' : 'flex-1'}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Chat
@@ -256,8 +342,10 @@ const Dashboard = () => {
                       size="sm" 
                       variant="outline"
                       onClick={() => navigate(`/project/${project.id}/settings`)}
+                      className={isMobile ? 'w-full' : ''}
                     >
                       <Settings className="h-4 w-4" />
+                      {isMobile && <span className="ml-2">Settings</span>}
                     </Button>
                   </div>
                 </CardContent>

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -18,6 +19,7 @@ const Auth = () => {
   const [activeTab, setActiveTab] = useState("signin");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -119,15 +121,17 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-background">
       {/* Header */}
-      <header className="container mx-auto px-6 py-6">
+      <header className="container mx-auto px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-primary rounded-lg"></div>
-          <span className="text-xl font-semibold">ChatBot Platform</span>
+          <span className={`font-semibold ${isMobile ? 'text-lg' : 'text-xl'}`}>
+            {isMobile ? 'ChatBot' : 'ChatBot Platform'}
+          </span>
         </div>
       </header>
 
-      <div className="flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md shadow-2xl">
+      <div className="flex items-center justify-center px-4 py-8">
+        <Card className={`w-full shadow-2xl ${isMobile ? 'max-w-sm mx-4' : 'max-w-md'}`}>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Welcome</CardTitle>
             <CardDescription>
